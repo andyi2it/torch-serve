@@ -6,6 +6,13 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.QueryStringDecoder;
+import io.netty.buffer.ByteBuf;
+import io.netty.util.CharsetUtil;
+
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+
 import org.pytorch.serve.archive.DownloadArchiveException;
 import org.pytorch.serve.archive.model.ModelException;
 import org.pytorch.serve.archive.workflow.WorkflowException;
@@ -29,6 +36,7 @@ public class OpenInferenceProtocolRequestHandler extends HttpRequestHandlerChain
     private static final String SERVER_METADATA_API = "/v2";
     private static final String SERVER_LIVE_API = "/v2/health/live";
     private static final String SERVER_READY_API = "/v2/health/ready";
+    private static final String GENERATE_API_PREFIX = "/v2/models/";
 
     /** Creates a new {@code OpenInferenceProtocolRequestHandler} instance. */
     public OpenInferenceProtocolRequestHandler() {}
@@ -65,6 +73,10 @@ public class OpenInferenceProtocolRequestHandler extends HttpRequestHandlerChain
             supportedExtensions.add("kubeflow");
             response.add("extenstion", supportedExtensions);
             NettyUtils.sendJsonResponse(ctx, response);
+        } else if (concatenatedSegments.startsWith(GENERATE_API_PREFIX) && concatenatedSegments.contains("/generate")) {
+            handleGenerateApi(ctx, req, segments);
+        } else if (concatenatedSegments.startsWith(GENERATE_API_PREFIX) && concatenatedSegments.contains("/generate_stream")) {
+            handleGenerateStreamApi(ctx, req, segments);
         } else if (segments.length > 5 && concatenatedSegments.contains("/versions")) {
             // As of now kserve not implemented versioning, we just throws not implemented.
             JsonObject response = new JsonObject();
@@ -72,6 +84,46 @@ public class OpenInferenceProtocolRequestHandler extends HttpRequestHandlerChain
             NettyUtils.sendJsonResponse(ctx, response, HttpResponseStatus.NOT_IMPLEMENTED);
         } else {
             chain.handleRequest(ctx, req, decoder, segments);
-        }
+        } 
     }
+    private void handleGenerateApi(
+            ChannelHandlerContext ctx,
+            FullHttpRequest req,
+            String[] segments)
+            throws ModelException, DownloadArchiveException, WorkflowException,
+                    WorkerInitializationException {
+
+        String modelName = segments[3];
+        String modelVersion = segments[5];
+
+        ByteBuf content = req.content();
+        String requestBody = content.toString(CharsetUtil.UTF_8);
+
+        System.out.println("requestBody" + requestBody);
+        
+        JsonObject response = new JsonObject();
+        response.addProperty("message", "Model generation successful");
+        NettyUtils.sendJsonResponse(ctx, response);
+    }
+
+    private void handleGenerateStreamApi(
+            ChannelHandlerContext ctx,
+            FullHttpRequest req,
+            String[] segments)
+            throws ModelException, DownloadArchiveException, WorkflowException,
+                    WorkerInitializationException {
+
+        String modelName = segments[3];
+        String modelVersion = segments[5];
+
+        ByteBuf content = req.content();
+        String requestBody = content.toString(CharsetUtil.UTF_8);
+
+        System.out.println("requestBody" + requestBody);
+        
+        JsonObject response = new JsonObject();
+        response.addProperty("message", "Model generation successful");
+        NettyUtils.sendJsonResponse(ctx, response);
+    }
+
 }
